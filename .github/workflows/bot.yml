@@ -6,12 +6,16 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
-  run-bot:
+  admin-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
 
     steps:
-      - name: Checkout
+      - name: Download code
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -19,12 +23,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+      - name: Install requirements
+        run: pip install -r requirements.txt
 
-      - name: Run Bot
+      - name: Run Admin Bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           ADMIN_USER_ID: ${{ secrets.ADMIN_USER_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python bot.py
