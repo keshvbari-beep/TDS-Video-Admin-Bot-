@@ -10,6 +10,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -19,6 +20,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+
 
 # =========================================================
 # SETTINGS
@@ -33,6 +35,11 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPPORT_URL = "https://t.me/RajanChauhan_club"
 SEARCH_BOT_URL = "https://t.me/TSB_Video_Search_Bot"
 
+
+# =========================================================
+# CHANNELS
+# =========================================================
+
 CHANNELS = {
     "1": -1004338671388,
     "2": -1004490954138,
@@ -40,12 +47,18 @@ CHANNELS = {
     "4": -1003472229143,
 }
 
+
 # =========================================================
-# THUMBNAIL SIZE - 4:5
+# THUMBNAIL - 4:5
 # =========================================================
 
 THUMB_WIDTH = 1280
 THUMB_HEIGHT = 1600
+
+
+# =========================================================
+# LOGGING
+# =========================================================
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -53,6 +66,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
 
 # =========================================================
 # SUPABASE
@@ -63,12 +77,12 @@ supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(
         SUPABASE_URL,
-        SUPABASE_KEY
+        SUPABASE_KEY,
     )
 
 
 # =========================================================
-# STATES
+# CONVERSATION STATES
 # =========================================================
 
 CHANNEL, CODE, PHOTO, TITLE, DESCRIPTION, LINK, PREVIEW = range(7)
@@ -87,6 +101,10 @@ def is_admin(update: Update) -> bool:
 
     return user.id == ADMIN_USER_ID
 
+
+# =========================================================
+# DENIED
+# =========================================================
 
 async def denied(update: Update):
 
@@ -110,7 +128,7 @@ async def denied(update: Update):
 
 async def start(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if not is_admin(update):
@@ -138,15 +156,16 @@ async def start(
 
 
 # =========================================================
-# CREATE BUTTON
+# CREATE POST
 # =========================================================
 
 async def create_post(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     query = update.callback_query
+
     await query.answer()
 
     if not is_admin(update):
@@ -196,10 +215,11 @@ async def create_post(
 
 async def select_channel(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     query = update.callback_query
+
     await query.answer()
 
     if not is_admin(update):
@@ -208,7 +228,7 @@ async def select_channel(
 
     channel_number = query.data.replace(
         "channel_",
-        ""
+        "",
     )
 
     context.user_data["channel"] = channel_number
@@ -224,17 +244,20 @@ async def select_channel(
 
 
 # =========================================================
-# CODE
+# RECEIVE CODE
 # =========================================================
 
 async def receive_code(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if not is_admin(update):
         await denied(update)
         return ConversationHandler.END
+
+    if not update.message or not update.message.text:
+        return CODE
 
     code = update.message.text.strip()
 
@@ -248,7 +271,6 @@ async def receive_code(
 
         return CODE
 
-    # Basic validation
     if len(code) < 3:
 
         await update.message.reply_text(
@@ -263,26 +285,26 @@ async def receive_code(
     await update.message.reply_text(
         "✅ Code Saved\n\n"
         "🖼️ अब अपनी Thumbnail / Photo भेजो।\n\n"
-        "Photo automatically **4:5 format** में crop होगी।"
+        "Photo automatically 4:5 format में crop होगी।"
     )
 
     return PHOTO
 
 
 # =========================================================
-# PHOTO
+# RECEIVE PHOTO
 # =========================================================
 
 async def receive_photo(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if not is_admin(update):
         await denied(update)
         return ConversationHandler.END
 
-    if not update.message.photo:
+    if not update.message or not update.message.photo:
 
         await update.message.reply_text(
             "⚠️ कृपया Photo भेजो।"
@@ -311,7 +333,7 @@ async def receive_photo(
         ).convert("RGB")
 
         # =================================================
-        # 4:5 CROP
+        # CROP TO 4:5
         # =================================================
 
         target_ratio = (
@@ -367,13 +389,13 @@ async def receive_photo(
             )
 
         # =================================================
-        # RESIZE 1280x1600
+        # RESIZE
         # =================================================
 
         image = image.resize(
             (
                 THUMB_WIDTH,
-                THUMB_HEIGHT
+                THUMB_HEIGHT,
             ),
             Image.Resampling.LANCZOS,
         )
@@ -394,13 +416,12 @@ async def receive_photo(
 
     except Exception as e:
 
-        logger.error(
-            "Image processing error: %s",
-            e
+        logger.exception(
+            "Image processing error"
         )
 
         await update.message.reply_text(
-            "❌ Photo process नहीं हो पाई। "
+            "❌ Photo process नहीं हो पाई।\n"
             "दूसरी photo try करो।"
         )
 
@@ -415,17 +436,20 @@ async def receive_photo(
 
 
 # =========================================================
-# TITLE
+# RECEIVE TITLE
 # =========================================================
 
 async def receive_title(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if not is_admin(update):
         await denied(update)
         return ConversationHandler.END
+
+    if not update.message or not update.message.text:
+        return TITLE
 
     title = update.message.text.strip()
 
@@ -447,17 +471,20 @@ async def receive_title(
 
 
 # =========================================================
-# DESCRIPTION
+# RECEIVE DESCRIPTION
 # =========================================================
 
 async def receive_description(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if not is_admin(update):
         await denied(update)
         return ConversationHandler.END
+
+    if not update.message or not update.message.text:
+        return DESCRIPTION
 
     description = update.message.text.strip()
 
@@ -469,9 +496,7 @@ async def receive_description(
 
         return DESCRIPTION
 
-    context.user_data["description"] = (
-        description
-    )
+    context.user_data["description"] = description
 
     await update.message.reply_text(
         "🔗 अब अपना **TeraBox Link** भेजो।"
@@ -481,17 +506,20 @@ async def receive_description(
 
 
 # =========================================================
-# LINK
+# RECEIVE LINK
 # =========================================================
 
 async def receive_link(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if not is_admin(update):
         await denied(update)
         return ConversationHandler.END
+
+    if not update.message or not update.message.text:
+        return LINK
 
     link = update.message.text.strip()
 
@@ -511,17 +539,17 @@ async def receive_link(
 
     return await show_preview(
         update,
-        context
+        context,
     )
 
 
 # =========================================================
-# PREVIEW
+# SHOW PREVIEW
 # =========================================================
 
 async def show_preview(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     data = context.user_data
@@ -569,9 +597,7 @@ async def show_preview(
         photo=io.BytesIO(data["photo"]),
         caption=caption,
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(
-            keyboard
-        ),
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
     await update.message.reply_text(
@@ -579,23 +605,23 @@ async def show_preview(
         f"📢 Channel: {channel}\n"
         f"🔢 Code: {code}\n"
         f"🖼️ Thumbnail: 4:5\n\n"
-        f"सब सही है तो **🚀 SEND POST** दबाओ।",
-        parse_mode="Markdown",
+        f"सब सही है तो 🚀 SEND POST दबाओ।"
     )
 
     return PREVIEW
 
 
 # =========================================================
-# SEND POST + SUPABASE SAVE
+# SEND POST + SUPABASE
 # =========================================================
 
 async def send_post(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     query = update.callback_query
+
     await query.answer()
 
     if not is_admin(update):
@@ -604,59 +630,56 @@ async def send_post(
 
     data = context.user_data
 
-    channel_number = data["channel"]
-    channel_id = CHANNELS[channel_number]
-
-    caption = (
-        f"🎬 <b>{data['title']}</b>\n\n"
-        f"{data['description']}"
-    )
-
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "▶️ GET LINK",
-                url=data["link"],
-            ),
-            InlineKeyboardButton(
-                "💬 SUPPORT",
-                url=SUPPORT_URL,
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "🔙 BACK TO SEARCH",
-                url=SEARCH_BOT_URL,
-            ),
-        ],
-    ]
-
     try:
 
+        channel_number = data["channel"]
+        channel_id = CHANNELS[channel_number]
+
+        caption = (
+            f"🎬 <b>{data['title']}</b>\n\n"
+            f"{data['description']}"
+        )
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "▶️ GET LINK",
+                    url=data["link"],
+                ),
+                InlineKeyboardButton(
+                    "💬 SUPPORT",
+                    url=SUPPORT_URL,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔙 BACK TO SEARCH",
+                    url=SEARCH_BOT_URL,
+                ),
+            ],
+        ]
+
         # =================================================
-        # SEND TO TELEGRAM CHANNEL
+        # SEND POST TO CHANNEL
         # =================================================
 
         sent_message = await context.bot.send_photo(
             chat_id=channel_id,
-            photo=io.BytesIO(
-                data["photo"]
-            ),
+            photo=io.BytesIO(data["photo"]),
             caption=caption,
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(
-                keyboard
-            ),
+            reply_markup=InlineKeyboardMarkup(keyboard),
         )
-
-        # =================================================
-        # GET TELEGRAM MESSAGE ID
-        # =================================================
 
         message_id = sent_message.message_id
 
+        logger.info(
+            "Telegram channel post sent. Message ID: %s",
+            message_id,
+        )
+
         # =================================================
-        # SAVE TO SUPABASE
+        # SUPABASE CHECK
         # =================================================
 
         if not supabase:
@@ -665,48 +688,103 @@ async def send_post(
                 "Supabase configuration missing."
             )
 
+        # =================================================
+        # DATABASE ROW
+        # =================================================
+
         row = {
             "code": data["code"],
             "channel_id": str(channel_id),
             "message_id": str(message_id),
             "name": data["title"],
             "description": data["description"],
-            "photo": sent_message.photo[-1].file_id
-            if sent_message.photo
-            else None,
+            "photo": (
+                sent_message.photo[-1].file_id
+                if sent_message.photo
+                else None
+            ),
         }
 
-        supabase.table(
-            "videos"
-        ).insert(row).execute()
+        # =================================================
+        # INSERT
+        # =================================================
+
+        result = (
+            supabase
+            .table("videos")
+            .insert(row)
+            .execute()
+        )
+
+        logger.info(
+            "Supabase save successful: %s",
+            result,
+        )
 
         # =================================================
         # SUCCESS
         # =================================================
 
-        await query.edit_message_text(
-            f"✅ POST SUCCESSFULLY SENT!\n\n"
+        success_text = (
+            "✅ POST SUCCESSFULLY SENT!\n\n"
             f"📢 Channel {channel_number}\n"
             f"🔢 Code: {data['code']}\n"
-            f"🖼️ Thumbnail 4:5 ✓\n"
-            f"📝 Title ✓\n"
-            f"📄 Description ✓\n"
-            f"🔗 GET LINK ✓\n"
-            f"💾 Database Save ✓\n"
+            "🖼️ Thumbnail 4:5 ✓\n"
+            "📝 Title ✓\n"
+            "📄 Description ✓\n"
+            "🔗 GET LINK ✓\n"
+            "💾 Database Save ✓\n"
             f"🆔 Message ID: {message_id}"
         )
 
+        # IMPORTANT:
+        # SEND POST button photo message पर है।
+        # इसलिए edit_message_text() नहीं।
+        # edit_caption() इस्तेमाल होगा।
+
+        if query.message:
+
+            await query.message.edit_caption(
+                caption=success_text,
+                reply_markup=None,
+            )
+
     except Exception as e:
 
-        logger.error(
-            "Send/Database error: %s",
-            e
+        logger.exception(
+            "Send/Database error"
         )
 
-        await query.edit_message_text(
+        error_text = (
             "❌ Post process में error आया।\n\n"
             f"Error: {str(e)[:500]}"
         )
+
+        # =================================================
+        # ERROR MESSAGE
+        # =================================================
+
+        try:
+
+            if query.message:
+
+                await query.message.edit_caption(
+                    caption=error_text,
+                    reply_markup=None,
+                )
+
+        except Exception as edit_error:
+
+            logger.error(
+                "Could not edit preview caption: %s",
+                edit_error,
+            )
+
+            if query.message:
+
+                await query.message.reply_text(
+                    error_text
+                )
 
     context.user_data.clear()
 
@@ -719,19 +797,29 @@ async def send_post(
 
 async def cancel(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if update.callback_query:
 
         query = update.callback_query
+
         await query.answer()
 
-        await query.edit_message_text(
-            "❌ Post creation cancelled."
-        )
+        try:
 
-    else:
+            await query.message.edit_caption(
+                caption="❌ Post creation cancelled.",
+                reply_markup=None,
+            )
+
+        except Exception:
+
+            await query.message.reply_text(
+                "❌ Post creation cancelled."
+            )
+
+    elif update.message:
 
         await update.message.reply_text(
             "❌ Post creation cancelled."
@@ -743,15 +831,18 @@ async def cancel(
 
 
 # =========================================================
-# ID HELPER
+# MY ID
 # =========================================================
 
 async def my_id(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     user = update.effective_user
+
+    if not user:
+        return
 
     await update.message.reply_text(
         f"🆔 आपका Telegram User ID:\n\n"
@@ -765,6 +856,10 @@ async def my_id(
 # =========================================================
 
 def main():
+
+    # =====================================================
+    # CHECK SETTINGS
+    # =====================================================
 
     if not BOT_TOKEN:
 
@@ -790,11 +885,19 @@ def main():
             "SUPABASE_KEY GitHub Secret में नहीं मिला।"
         )
 
+    # =====================================================
+    # APPLICATION
+    # =====================================================
+
     application = (
         Application.builder()
         .token(BOT_TOKEN)
         .build()
     )
+
+    # =====================================================
+    # CONVERSATION
+    # =====================================================
 
     conversation = ConversationHandler(
 
@@ -807,61 +910,98 @@ def main():
 
         states={
 
+            # ---------------------------------------------
+            # CHANNEL
+            # ---------------------------------------------
+
             CHANNEL: [
+
                 CallbackQueryHandler(
                     select_channel,
                     pattern="^channel_[1-4]$",
                 ),
+
                 CallbackQueryHandler(
                     cancel,
                     pattern="^cancel$",
                 ),
             ],
 
+            # ---------------------------------------------
+            # CODE
+            # ---------------------------------------------
+
             CODE: [
+
                 MessageHandler(
                     filters.TEXT &
                     ~filters.COMMAND,
                     receive_code,
-                )
+                ),
             ],
 
+            # ---------------------------------------------
+            # PHOTO
+            # ---------------------------------------------
+
             PHOTO: [
+
                 MessageHandler(
                     filters.PHOTO,
                     receive_photo,
-                )
+                ),
             ],
 
+            # ---------------------------------------------
+            # TITLE
+            # ---------------------------------------------
+
             TITLE: [
+
                 MessageHandler(
                     filters.TEXT &
                     ~filters.COMMAND,
                     receive_title,
-                )
+                ),
             ],
 
+            # ---------------------------------------------
+            # DESCRIPTION
+            # ---------------------------------------------
+
             DESCRIPTION: [
+
                 MessageHandler(
                     filters.TEXT &
                     ~filters.COMMAND,
                     receive_description,
-                )
+                ),
             ],
 
+            # ---------------------------------------------
+            # LINK
+            # ---------------------------------------------
+
             LINK: [
+
                 MessageHandler(
                     filters.TEXT &
                     ~filters.COMMAND,
                     receive_link,
-                )
+                ),
             ],
 
+            # ---------------------------------------------
+            # PREVIEW
+            # ---------------------------------------------
+
             PREVIEW: [
+
                 CallbackQueryHandler(
                     send_post,
                     pattern="^send_post$",
                 ),
+
                 CallbackQueryHandler(
                     cancel,
                     pattern="^cancel$",
@@ -872,24 +1012,28 @@ def main():
         fallbacks=[
             CommandHandler(
                 "cancel",
-                cancel
-            )
+                cancel,
+            ),
         ],
 
         allow_reentry=True,
     )
 
+    # =====================================================
+    # COMMANDS
+    # =====================================================
+
     application.add_handler(
         CommandHandler(
             "start",
-            start
+            start,
         )
     )
 
     application.add_handler(
         CommandHandler(
             "id",
-            my_id
+            my_id,
         )
     )
 
@@ -897,15 +1041,22 @@ def main():
         conversation
     )
 
+    # =====================================================
+    # RUN
+    # =====================================================
+
     print(
-        "TDS Video Admin Bot "
-        "is running..."
+        "TDS Video Admin Bot is running..."
     )
 
     application.run_polling(
         drop_pending_updates=True
     )
 
+
+# =========================================================
+# START PROGRAM
+# =========================================================
 
 if __name__ == "__main__":
     main()
